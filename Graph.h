@@ -4,6 +4,7 @@
 #include <queue>
 #include <string>
 
+#include "CircularList.h"
 #include "Constants.h"
 #include "Point.h"
 #include "Vector.h"
@@ -15,7 +16,7 @@ struct PolyEdge;
 template <typename Data, typename EdgeT>
 struct Node {
     Data data;
-    std::list<EdgeT*> edges; // ordered
+    CList<EdgeT*> edges; // ordered
     Node(const Data& d) : data(d) {};
     Node(const Node&) = delete;
     Node(Node&&) = default;
@@ -77,11 +78,11 @@ struct PolygonBuildStep {
 // ****************DEFINITIONS******************
 
 void addPolyEdgeToBack(Polygon& poly, PolyEdge* e) {
-    poly.edges.push_back(e);
+    poly.edges.emplace_back(e);
 }
 
 void addPolyEdgeToFront(Polygon& poly, PolyEdge* e) {
-    poly.edges.push_front(e);
+    poly.edges.emplace_front(e);
 }
 
 void buildPolygonEdges(std::list<Polygon> polys, std::queue<PolygonBuildStep> steps) {
@@ -114,6 +115,6 @@ void GeomNode::insertEdge(GeomEdge* e) {
     while (it != edges.end() && compare(*it, e)) {
         ++it;
     }
-    edges.insert(it, e);
+    edges.emplace(it, e);
 }
 

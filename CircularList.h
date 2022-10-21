@@ -22,6 +22,7 @@ public:
 		CListItem<Data>* item;
 		int revolution_num = 0;
 		iterator(const CList& l, CListItem<Data>* i, int r) : list(l), item(i), revolution_num(r) {}
+
 	public:
 		 iterator& operator++() {
 			if (item->next == list.head) {
@@ -48,7 +49,33 @@ public:
 			return !operator==(other);
 		}
 	};
+private:
+	iterator insertImpl(const iterator& before_this, CListItem<Data>* item) {
+		if (before_this.item == nullptr) {
+			head = item;
+			return iterator(*this, head, 0);
+		}
+		if (before_this == begin()) {
+			head = item;
+		}
+		item->prev = before_this.item->prev;
+		item->next = before_this.item;
+		before_this.item->prev = item;
+		item->prev->next = item;
+		return iterator(*this, item, 0);
+	}
 
+	iterator pushFrontImpl(CListItem<Data>* item) {
+		auto ret = insertImpl(begin(), item);
+		head = item;
+		return ret;
+	}
+
+	iterator pushBackImpl(CListItem<Data>* item) {
+		auto ret = insertImpl(end(), item);
+		return ret;
+	}
+public:
 	~CList() {
 		auto it = head;
 		if (head != nullptr) {
@@ -75,28 +102,28 @@ public:
 
 	template <typename... Args>
 	iterator emplace(const iterator& before_this, Args&&... to_insert) {
-		if (before_this.item == nullptr) {
-			head = new CListItem<Data>(std::forward<Args>(to_insert)...);
-			return iterator(*this, head, 0);
-		}
-		auto item = new CListItem<Data>(std::forward<Args>(to_insert)...);
-		item->prev = before_this.item->prev;
-		item->next = before_this.item;
-		before_this.item->prev = item;
-		item->prev->next = item;
-		return iterator(*this, item, 0);
+		return insertImpl(before_this, new CListItem<Data>(std::forward<Args>(to_insert)...));
 	}
 
 	iterator insert(const iterator& before_this, Data&& to_insert) {
-		if (before_this.item == nullptr) {
-			head = new CListItem<Data>(std::move(to_insert));
-			return iterator(*this, head, 0);
-		}
-		auto item = new CListItem<Data>(std::move(to_insert));
-		item->prev = before_this.item->prev;
-		item->next = before_this.item;
-		before_this.item->prev = item;
-		item->prev->next = item;
-		return iterator(*this, item, 0);
+		return insertImpl(before_this, new CListItem<Data>(std::move(to_insert)));
+	}
+
+	iterator push_front(Data&& to_insert) {
+		return pushFrontImpl(new CListItem<Data>(std::move(to_insert)));
+	}
+
+	template <typename... Args>
+	iterator emplace_front(Args&&... to_insert) {
+		return pushFrontImpl(new CListItem<Data>(std::forward<Args>(to_insert)...));
+	}
+
+	iterator push_back(Data&& to_insert) {
+		return pushBackImpl(new CListItem<Data>(std::move(to_insert)));
+	}
+
+	template <typename... Args>
+	iterator emplace_back(Args&&... to_insert) {
+		return pushBackImpl(new CListItem<Data>(std::forward<Args>(to_insert)...));
 	}
 };
