@@ -40,6 +40,8 @@ struct Edge {
 struct GeomEdge : public Edge<GeomNode, Vector> {
     using NodeT = GeomNode;
     Vector& dir; // normalized
+    CList<GeomEdge*>::iterator start_edges_item;
+    CList<GeomEdge*>::iterator end_edges_item;
     Vector outwardDirFrom(const GeomNode& n) const;
 
     GeomEdge(GeomNode& s, GeomNode& e);
@@ -57,7 +59,7 @@ struct PolyEdge : public Edge<Polygon, GeomEdge*> {
 struct GeomNode : public Node<Point, GeomEdge> {
     Point& pos;
     explicit GeomNode(const Point& p) : Node(p), pos(data) {}
-    void insertEdge(GeomEdge*);
+    CList<GeomEdge*>::iterator insertEdge(GeomEdge*);
     bool compare(const GeomEdge* one, const GeomEdge* other);
 };
 
@@ -94,10 +96,10 @@ Vector GeomEdge::outwardDirFrom(const GeomNode& n) const {
     return dir.flipped();
 }
 
-GeomEdge::GeomEdge(GeomNode& s, GeomNode& e) : Edge(s, e, Vector(s.pos, e.pos).normalized()), dir(assoc) {
-    start.insertEdge(this);
-    end.insertEdge(this);
-}
+GeomEdge::GeomEdge(GeomNode& s, GeomNode& e) 
+    : Edge(s, e, Vector(s.pos, e.pos).normalized()), dir(assoc),
+    start_edges_item(start.insertEdge(this)),
+    end_edges_item(end.insertEdge(this)) {}
 
 
 PolyEdge::PolyEdge(Polygon& s, Polygon& e, PolyEdgeAdder sadder, PolyEdgeAdder eadder, GeomEdge* ge) :
@@ -110,11 +112,11 @@ bool GeomNode::compare(const GeomEdge* one, const GeomEdge* other) {
     return ccwLessNormalized(one->outwardDirFrom(*this), other->outwardDirFrom(*this));
 }
 
-void GeomNode::insertEdge(GeomEdge* e) {
+CList<GeomEdge*>::iterator GeomNode::insertEdge(GeomEdge* e) {
     auto it = edges.begin();
     while (it != edges.end() && compare(*it, e)) {
         ++it;
     }
-    edges.emplace(it, e);
+    return edges.emplace(it, e);
 }
 
