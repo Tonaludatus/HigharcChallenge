@@ -27,7 +27,7 @@ struct Vector {
 };
 
 // op== between normalized vectors with eps precision
-bool eq_normalized(const Vector& v1, const Vector& v2);
+bool eqNormalized(const Vector& v1, const Vector& v2);
 
 // op< between normalized vectors comparing by counterclockwise rotation from (1, 0)
-bool ccw_less_normalized(const Vector& v1, const Vector& v2);
+bool ccwLessNormalized(const Vector& v1, const Vector& v2);

@@ -1,5 +1,7 @@
 #pragma once
 #include <list>
+#include <memory>
+#include <queue>
 #include <string>
 
 #include "Constants.h"
@@ -8,18 +10,18 @@
 
 struct GeomNode;
 struct Polygon;
+struct PolyEdge;
 
-template <typename Data, typename EdgeT, typename EdgeAssoc = EdgeT*>
+template <typename Data, typename EdgeT>
 struct Node {
     Data data;
-    std::list<EdgeAssoc> edges; // ordered
+    std::list<EdgeT*> edges; // ordered
     Node(const Data& d) : data(d) {};
     Node(const Node&) = delete;
-    Node(Node&&) = delete;
+    Node(Node&&) = default;
     bool operator==(const Node& other) const {
         return &other == this;
     }
-    static void insertEdge(typename EdgeT::NodeT&, EdgeAssoc&&);
 };
 
 
@@ -29,80 +31,89 @@ struct Edge {
     NodeT& end;
     Assoc assoc;
 
-    Edge(NodeT& s, NodeT& e, Assoc&& a) : start(s), end(e), assoc(std::move(a)) {
-// This requires runtime type inference to pass 'this' as the correct type.
-// Javascript will be able to do it...
-//        NodeT::insertEdge(start, this);
-//        NodeT::insertEdge(end, this);
-    }
+    Edge(NodeT& s, NodeT& e, Assoc&& a) : start(s), end(e), assoc(std::move(a)) {}
+    Edge(const Edge&) = delete;
+    Edge(Edge&&) = default;
 };
 
 struct GeomEdge : public Edge<GeomNode, Vector> {
     using NodeT = GeomNode;
     Vector& dir; // normalized
-    Vector outward_dir_from(const GeomNode& n) const;
+    Vector outwardDirFrom(const GeomNode& n) const;
 
     GeomEdge(GeomNode& s, GeomNode& e);
-
-    // This should be a virtual method of the Node
-    static bool compare(const GeomNode& n, const GeomEdge* one, const GeomEdge* other);
 };
+
+using PolyEdgeAdder = void(*)(Polygon&, PolyEdge*);
 
 struct PolyEdge : public Edge<Polygon, GeomEdge*> {
     using NodeT = Polygon;
-    struct IndexedPolyEdge {
-        int index;
-        PolyEdge* edge;
-    };
 
-    PolyEdge(Polygon& s, Polygon& e, int sindex, int eindex, GeomEdge* ge);
-
-    // This should be a virtual method of the Node
-    static bool compare(const Polygon& n, const IndexedPolyEdge& one, const IndexedPolyEdge& other);
+    PolyEdge(Polygon& s, Polygon& e, PolyEdgeAdder sadder, PolyEdgeAdder eadder, GeomEdge* ge);
 };
 
 // Edges ordered by rotation from (1, 0)
 struct GeomNode : public Node<Point, GeomEdge> {
     Point& pos;
     explicit GeomNode(const Point& p) : Node(p), pos(data) {}
+    void insertEdge(GeomEdge*);
+    bool compare(const GeomEdge* one, const GeomEdge* other);
 };
 
-struct Polygon : public Node<std::string, PolyEdge, PolyEdge::IndexedPolyEdge> {
+struct Polygon : public Node<std::string, PolyEdge> {
     std::string& name;
     explicit Polygon(const std::string& n) : Node(n), name(data) {}
 };
 
+struct PolygonBuildStep {
+    const GeomNode& next;
+    const GeomEdge* from;
+    Polygon* outgoing_left_poly;
+    PolyEdgeAdder outgoing_left_edge_adder;
+    Polygon* outgoing_rigth_poly;
+    PolyEdgeAdder outgoing_right_edge_adder;
+};
+
 // ****************DEFINITIONS******************
 
-Vector GeomEdge::outward_dir_from(const GeomNode& n) const {
+void addPolyEdgeToBack(Polygon& poly, PolyEdge* e) {
+    poly.edges.push_back(e);
+}
+
+void addPolyEdgeToFront(Polygon& poly, PolyEdge* e) {
+    poly.edges.push_front(e);
+}
+
+void buildPolygonEdges(std::list<Polygon> polys, std::queue<PolygonBuildStep> steps) {
+
+}
+
+Vector GeomEdge::outwardDirFrom(const GeomNode& n) const {
     if (n == start) return dir;
     return dir.flipped();
 }
 
 GeomEdge::GeomEdge(GeomNode& s, GeomNode& e) : Edge(s, e, Vector(s.pos, e.pos).normalized()), dir(assoc) {
-    GeomNode::insertEdge(start, this);
-    GeomNode::insertEdge(end, this);
+    start.insertEdge(this);
+    end.insertEdge(this);
 }
 
-bool GeomEdge::compare(const GeomNode& n, const GeomEdge* one, const GeomEdge* other) {
-    return ccw_less_normalized(one->outward_dir_from(n), other->outward_dir_from(n));
+
+PolyEdge::PolyEdge(Polygon& s, Polygon& e, PolyEdgeAdder sadder, PolyEdgeAdder eadder, GeomEdge* ge) :
+    Edge(s, e, std::move(ge)) {
+    sadder(s, this);
+    eadder(e, this);
 }
 
-PolyEdge::PolyEdge(Polygon& s, Polygon& e, int sindex, int eindex, GeomEdge* ge) : Edge(s, e, std::move(ge)) {
-    Polygon::insertEdge(start, {sindex, this});
-    Polygon::insertEdge(end, {eindex, this});
+bool GeomNode::compare(const GeomEdge* one, const GeomEdge* other) {
+    return ccwLessNormalized(one->outwardDirFrom(*this), other->outwardDirFrom(*this));
 }
 
-bool PolyEdge::compare(const Polygon& n, const IndexedPolyEdge& one, const IndexedPolyEdge& other) {
-    return one.index < other.index;
-}
-
-template <typename Data, typename EdgeT, typename EdgeAssoc>
-void Node<Data, EdgeT, EdgeAssoc>::insertEdge(typename EdgeT::NodeT& n, EdgeAssoc&& e) {
-    auto it = n.edges.begin();
-    while (it != n.edges.end() && EdgeT::compare(n, *it, e)) {
+void GeomNode::insertEdge(GeomEdge* e) {
+    auto it = edges.begin();
+    while (it != edges.end() && compare(*it, e)) {
         ++it;
     }
-    n.edges.insert(it, std::move(e));
+    edges.insert(it, e);
 }
 

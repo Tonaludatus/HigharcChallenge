@@ -153,6 +153,7 @@
     <ClCompile Include="Vector.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CircularList.h" />
     <ClInclude Include="Constants.h" />
     <ClInclude Include="Graph.h" />
     <ClInclude Include="Point.h" />
