@@ -38,6 +38,20 @@ public:
 			item = item->prev;
 			return *this;
 		}
+		iterator circularAdvancedBy(int n) const {
+			auto ret = *this;
+			if (n >= 0) {
+				for (int i = 0; i < n; ++i) {
+					ret->item = item->next;
+				}
+			}
+			else {
+				for (int i = 0; i > n; --i) {
+					ret->item = item->prev;
+				}
+			}
+			return ret;
+		}
 		const Data& operator*() const { return item->data; }
 		Data& operator*() { return item->data; }
 		const Data* operator->() const { return &(item->data); }
