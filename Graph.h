@@ -2,6 +2,7 @@
 #include <list>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <queue>
 #include <string>
 #include <sstream>
@@ -183,6 +184,22 @@ struct Polygon {
     explicit Polygon(Node& n, std::string&& nm) : node(n), name(std::move(nm)) {}
 };
 
+struct PolyGraphExport {
+    std::vector<std::pair<double, double>> geom_nodes;
+    // indexes into geom_nodes
+    std::vector<std::pair<size_t, size_t>> geom_edges;
+    // signed indexes into geom_edges. Positive sign means the
+    // polygon is on the left geometric side of the edge.
+    // Negative sign means it's on the right geometric side.
+    // For indexing into geom_edges take the absolut value of
+    // the index and subtract one.
+    // The order of the edges follows counterclockwise circumnavigation
+    // of the polygon.
+    std::vector < std::pair<std::string, std::vector<int> > > polygons; 
+};
+
+std::ostream& operator<<(std::ostream& os, const PolyGraphExport& pge);
+
 struct PolyGraph {
     const GeomGraph& geom_graph;
     Graph g;
@@ -202,6 +219,15 @@ struct PolyGraph {
         return *poly_edges[key];
     }
 };
+
+struct DualGraph {
+    GeomGraph geom_graph;
+    PolyGraph poly_graph{ geom_graph };
+};
+
+DualGraph importDualGraph(const PolyGraphExport& pgx);
+
+PolyGraphExport exportPolyGraph(const PolyGraph& poly_graph);
 
 class PolygonBuilder {
 private:

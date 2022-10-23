@@ -27,3 +27,113 @@ Node::EdgesListType::iterator GeomGraph::insertEdge(GeomNode& n, GeomEdge* e) {
     return edges_list.emplace(it, &(e->edge));
 }
 
+DualGraph importDualGraph(const PolyGraphExport& pgx) {
+    DualGraph dg;
+    GeomGraph& gg = dg.geom_graph;
+    PolyGraph& pg = dg.poly_graph;
+    for (auto& p : pgx.geom_nodes) {
+        gg.addGeomNode(Point(p.first, p.second));
+    }
+    for (auto& e : pgx.geom_edges) {
+        auto ge = gg.addGeomEdge(gg.getGeomNode(e.first),
+            gg.getGeomNode(e.second));
+        auto ue = pg.g.addUnboundEdge();
+        pg.poly_edges.emplace_back(
+            std::make_unique<PolyEdge>(ue.second, ge.second));
+    }
+    for (auto& p : pgx.polygons) {
+        auto n = pg.g.addNode();
+        auto& node = n.second;
+        std::string name = p.first;
+        pg.polygons.emplace_back(
+            std::make_unique<Polygon>(node, std::move(name)));
+        for (auto signed_edge_idx : p.second) {
+            size_t edge_idx = abs(signed_edge_idx) - 1;
+            Edge& e = pg.g.getEdge(edge_idx);
+            node.edges.emplace_back(&e);
+            if (signed_edge_idx > 0) {
+                e.start = &node;
+            }
+            else {
+                e.end = &node;
+            }
+        }
+    }
+    return dg;
+}
+
+PolyGraphExport exportPolyGraph(const PolyGraph& poly_graph) {
+    PolyGraphExport pgx;
+    for (size_t i = 0; i < poly_graph.geom_graph.numNodes(); ++i) {
+        auto& geom_node = poly_graph.geom_graph.getGeomNode(i);
+        pgx.geom_nodes.emplace_back(
+            geom_node.pos.x, geom_node.pos.y);
+    }
+    for (size_t i = 0; i < poly_graph.g.edges.size(); ++i) {
+        auto& geom_edge = poly_graph.geom_graph.getGeomEdge(i);
+        pgx.geom_edges.emplace_back(
+            geom_edge.edge.start->key, geom_edge.edge.end->key);
+    }
+    for (auto& p : poly_graph.polygons) {
+        std::vector<int> edges;
+        for (auto* e : p->node.edges) {
+            int idx = e->key + 1;
+            if (e->start == &p->node) {
+                edges.push_back(idx);
+            }
+            else {
+                edges.push_back(-idx);
+            }
+        }
+        pgx.polygons.emplace_back(
+            p->name, std::move(edges));
+    }
+    return pgx;
+}
+
+std::ostream& operator<<(std::ostream& os, const PolyGraphExport& pge) {
+    os << "{" << std::endl;
+    os << "  \"vertices\": [" << std::endl << "    ";
+    size_t i = 0;
+    for (; i < pge.geom_nodes.size(); ++i) {
+        auto& gn = pge.geom_nodes[i];
+        if (i != 0) os << ", ";
+        os << "[" << gn.first << ", " << gn.second << "]";
+        if (i % 4 == 3) os << std::endl << "    ";
+    }
+    if (i % 4 != 3) os << std::endl;
+    os << "  ]," << std::endl;
+
+    os << "  \"edges\": [" << std::endl << "    ";
+    i = 0;
+    for (; i < pge.geom_edges.size(); ++i) {
+        auto& ge = pge.geom_edges[i];
+        if (i != 0) os << ", ";
+        os << "[" << ge.first << ", " << ge.second << "]";
+        if (i % 4 == 3) os << std::endl << "    ";
+    }
+    if (i % 4 != 3) os << std::endl;
+    os << "  ]," << std::endl;
+
+    os << "  \"faces\": [";
+    for (size_t i = 0; i < pge.polygons.size(); ++i) {
+        if (i != 0) os << ",";
+        os << std::endl << "    ";
+        auto& p = pge.polygons[i];
+        os << "{\"name\"=\"" << p.first << "\", " << std::endl;
+        os << "     \"edges\"=[";
+        size_t j = 0;
+        for (; j < p.second.size(); ++j) {
+            int signed_edge_idx = p.second[j];
+            if (j != 0) os << ", ";
+            os << signed_edge_idx;
+            if (i % 4 == 3) os << std::endl << "      ";
+        }
+        os << "]}";
+    }
+    os << "  ]," << std::endl;
+
+    os << "}" << std::endl;
+    return os;
+}
+
