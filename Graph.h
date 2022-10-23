@@ -168,10 +168,9 @@ public:
 
 struct PolyEdge {
     using NodeT = Polygon;
+    // The left and right polygons with respect to geom_edge's direction
+    // are the PolyEdge's edge's start and end nodes respectively.
     Edge& edge;
-    // left and right are with respect to geom_edge's direction
-    Polygon* left = nullptr;
-    Polygon* right = nullptr;
     const GeomEdge& geom_edge; // the geom edge it is the dual edge of
 
     PolyEdge(Edge& e, const GeomEdge& ge);
@@ -190,7 +189,7 @@ struct PolyGraph {
     std::vector<std::unique_ptr<Polygon>> polygons;
     std::vector<std::unique_ptr<PolyEdge>> poly_edges;
 
-    const Polygon& getPolygone(int key) const {
+    const Polygon& getPolygon(int key) const {
         return *polygons[key];
     }
     Polygon& getPolygon(int key) {
@@ -217,14 +216,6 @@ private:
     std::queue<PolygonBuildStep> steps;
     int name_counter = 0;
 
-    static void addPolyEdgeToBackOfPolygon(Polygon& poly, PolyEdge* e) {
-        poly.node.edges.emplace_back(&e->edge);
-    }
-
-    static void addPolyEdgeToFrontOfPolygon(Polygon& poly, PolyEdge* e) {
-        poly.node.edges.emplace_front(&e->edge);
-    }
-
     static std::string generateName(int counter) {
         std::stringstream ss;
         do {
@@ -234,16 +225,38 @@ private:
         return ss.str();
     }
 
+    static void addPolyEdgeToBackOfPolygon(Polygon& poly, PolyEdge* e) {
+        poly.node.edges.emplace_back(&e->edge);
+    }
+
+    static void addPolyEdgeToFrontOfPolygon(Polygon& poly, PolyEdge* e) {
+        poly.node.edges.emplace_front(&e->edge);
+    }
+
+    Polygon* geometricLeftPolygon(const GeomEdge& ge) const {
+        if (poly_edges[ge.edge.key] == nullptr) return nullptr;
+        auto* poly_node = poly_edges[ge.edge.key]->edge.start;
+        if (poly_node == nullptr) return nullptr;
+        return polygons[poly_node->key].get();
+    }
+
+    Polygon* geometricRightPolygon(const GeomEdge& ge) const {
+        if (poly_edges[ge.edge.key] == nullptr) return nullptr;
+        auto* poly_node = poly_edges[ge.edge.key]->edge.end;
+        if (poly_node == nullptr) return nullptr;
+        return polygons[poly_node->key].get();
+    }
+
     Polygon* outwardLeftPolygon(const Node& n, const GeomEdge& ge) const {
         if (poly_edges[ge.edge.key] == nullptr) return nullptr;
-        if (n == *ge.edge.start) return poly_edges[ge.edge.key]->left;
-        return poly_edges[ge.edge.key]->right;
+        if (n == *ge.edge.start) return geometricLeftPolygon(ge);
+        return geometricRightPolygon(ge);
     }
 
     Polygon* outwardRightPolygon(const Node& n, const GeomEdge& ge) const {
         if (poly_edges[ge.edge.key] == nullptr) return nullptr;
-        if (n == *ge.edge.start) return poly_edges[ge.edge.key]->right;
-        return poly_edges[ge.edge.key]->left;
+        if (n == *ge.edge.start) return geometricRightPolygon(ge);
+        return geometricLeftPolygon(ge);
     }
 
     std::pair<int, Polygon&> addPolygon(std::string&& name) {
@@ -257,13 +270,11 @@ private:
         poly_edges[ge.edge.key] = std::make_unique<PolyEdge>(e, ge);
     }
 
-    void addLeftPolyToPolyEdge(Polygon* p, PolyEdge& pe) {
-        pe.left = p;
+    void addGeometricLeftPolyToPolyEdge(Polygon* p, PolyEdge& pe) {
         pe.edge.start = &p->node;
     }
 
-    void addRightPolyToPolyEdge(Polygon* p, PolyEdge& pe) {
-        pe.right = p;
+    void addGeometricRightPolyToPolyEdge(Polygon* p, PolyEdge& pe) {
         pe.edge.end = &p->node;
     }
 
@@ -274,10 +285,10 @@ private:
         }
         auto& pe = poly_edges[ge.edge.key];
         if (n == *ge.edge.start) {
-            addRightPolyToPolyEdge(outward_right_poly, *pe);
+            addGeometricRightPolyToPolyEdge(outward_right_poly, *pe);
             return pe;
         }
-        addLeftPolyToPolyEdge(outward_right_poly, *pe);
+        addGeometricLeftPolyToPolyEdge(outward_right_poly, *pe);
         return pe;
     }
 
@@ -285,7 +296,7 @@ private:
         steps.emplace(node, edge_to_process);
     }
 
-    // Moves along the spans starting from one edge.
+    // Moves along the left spans starting from one edge.
     // Builds the right hand side polygon
     void buildFromOnePolygonEdge() {
         if (steps.empty()) {
@@ -316,11 +327,12 @@ private:
             auto& pe = saveOutwardRightPolyWithRespectToGeomEdge(*current_node, *ge, outward_right_poly);
             addPolyEdgeToFrontOfPolygon(*outward_right_poly, pe.get());
 
-            Polygon* geom_left_poly = pe->left;
-            Polygon* geom_right_poly = pe->right;
-            if (geom_left_poly == nullptr || geom_right_poly == nullptr) {
-                // If the left poly is missing then enqueue the backwards direction
-                // which will make it the right hand side poly of it.
+            Node* geom_left_poly_node = pe->edge.start;
+            Node* geom_right_poly_node = pe->edge.end;
+            if (geom_left_poly_node == nullptr || geom_right_poly_node == nullptr) {
+                // If the one poly is missing then enqueue the 
+                // backwards direction which will make the other
+                // side poly of it.
                 enqueue(other_node, other_end_edges_it);
             }
 
