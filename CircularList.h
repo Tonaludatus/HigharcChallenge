@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+
 template <typename Data>
 struct CListItem {
 	Data data;
@@ -18,36 +20,36 @@ public:
 	class iterator {
 	private:
 		friend class CList;
-		const CList& list;
+		const CList* list; // Must be a pointer for op= to work
 		CListItem<Data>* item;
 		int revolution_num = 0;
-		iterator(const CList& l, CListItem<Data>* i, int r) : list(l), item(i), revolution_num(r) {}
+		iterator(const CList& l, CListItem<Data>* i, int r) : list(&l), item(i), revolution_num(r) {}
 
 	public:
 		 iterator& operator++() {
-			if (item->next == list.head) {
+			if (item->next == list->head) {
 				++revolution_num;
 			}
 			item = item->next;
 			return *this;
 		}
 		iterator& operator--() {
-			if (item->prev == list.head) {
+			if (item->prev == list->head) {
 				--revolution_num;
 			}
 			item = item->prev;
 			return *this;
 		}
 		iterator circularAdvancedBy(int n) const {
-			auto ret = *this;
+			iterator ret{ *this };
 			if (n >= 0) {
 				for (int i = 0; i < n; ++i) {
-					ret->item = item->next;
+					ret.item = ret.item->next;
 				}
 			}
 			else {
 				for (int i = 0; i > n; --i) {
-					ret->item = item->prev;
+					ret.item = ret.item->prev;
 				}
 			}
 			return ret;
@@ -57,10 +59,15 @@ public:
 		const Data* operator->() const { return &(item->data); }
 		Data* operator->() { return &(item->data); }
 		bool operator==(const iterator& other) const {
-			return &list == &other.list && item == other.item && (revolution_num == other.revolution_num || item == nullptr);
+			return list == other.list && item == other.item && (revolution_num == other.revolution_num || item == nullptr);
 		}
 		bool operator!=(const iterator& other) const {
 			return !operator==(other);
+		}
+		iterator& operator=(const iterator& other) {
+			item = other.item;
+			revolution_num = other.revolution_num;
+			return *this;
 		}
 	};
 private:

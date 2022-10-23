@@ -150,6 +150,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Graph.cpp" />
     <ClCompile Include="HigharcChallenge.cpp" />
     <ClCompile Include="Vector.cpp" />
   </ItemGroup>
