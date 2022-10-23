@@ -11,8 +11,8 @@ GeomEdge::GeomEdge(GeomGraph& g, Edge& e, GeomNode& start, GeomNode& end)
     end_edges_item(g.insertEdge(end, this)) {}
 
 
-PolyEdge::PolyEdge(Edge& e, Polygon& l, Polygon& r, const GeomEdge* ge) :
-    edge(e), left(l), right(r), geom_edge(ge) {}
+PolyEdge::PolyEdge(Edge& e, const GeomEdge& ge) :
+    edge(e), geom_edge(ge) {}
 
 bool GeomGraph::compare(const GeomNode& n, const GeomEdge& one, const GeomEdge& other) const {
     return ccwLessNormalized(outwardDirFrom(one, n), outwardDirFrom(other, n));
