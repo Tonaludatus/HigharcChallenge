@@ -10,6 +10,7 @@
 #include "CircularList.h"
 #include "Constants.h"
 #include "Point.h"
+#include "Trig.h"
 #include "Vector.h"
 
 struct GeomNode;
@@ -120,10 +121,10 @@ private:
     std::vector<std::unique_ptr<GeomNode>> geom_nodes;
     Node::EdgesListType::iterator insertEdge(GeomNode&, GeomEdge*);
 
-    static Vector outwardDirFrom(const GeomEdge&, const GeomNode&);
     bool compare(const GeomNode&, const GeomEdge&, const GeomEdge&) const;
 
 public:
+    static Vector outwardDirFrom(const GeomEdge&, const GeomNode&);
     std::pair<int, GeomNode&> addGeomNode(const Point& p) {
         auto n = g.addNode();
         auto& gn = geom_nodes.emplace_back(std::make_unique<GeomNode>(n.second, p));
@@ -181,10 +182,16 @@ struct PolyEdge {
 struct Polygon {
     Node& node;
     std::string name;
-    explicit Polygon(Node& n, std::string&& nm) : node(n), name(std::move(nm)) {}
+    Rotation revolution{0.0, 1.0, 0};
+    Polygon(Node& n, std::string&& nm) : node(n), name(std::move(nm)) {}
 };
 
 struct PolyGraphExport {
+    struct PolygonExport {
+        std::string name;
+        bool is_interior_poly;
+        std::vector<int> edges;
+    };
     std::vector<std::pair<double, double>> geom_nodes;
     // indexes into geom_nodes
     std::vector<std::pair<size_t, size_t>> geom_edges;
@@ -193,9 +200,9 @@ struct PolyGraphExport {
     // Negative sign means it's on the right geometric side.
     // For indexing into geom_edges take the absolut value of
     // the index and subtract one.
-    // The order of the edges follows counterclockwise circumnavigation
-    // of the polygon.
-    std::vector < std::pair<std::string, std::vector<int> > > polygons; 
+    // The order of the edges follows counterclockwise revolution
+    // around the polygon.
+    std::vector < PolygonExport > polygons;
 };
 
 std::ostream& operator<<(std::ostream& os, const PolyGraphExport& pge);
@@ -348,9 +355,9 @@ private:
             auto& other_end_edges_it = const_cast<GeomGraph&>(geom_graph).otherEdgesItem(
                 *current_node, **current_edge);
 
-            const GeomEdge* ge = &geom_graph.getGeomEdge((*current_edge)->key);
+            const GeomEdge& ge = geom_graph.getGeomEdge((*current_edge)->key);
 
-            auto& pe = saveOutwardRightPolyWithRespectToGeomEdge(*current_node, *ge, outward_right_poly);
+            auto& pe = saveOutwardRightPolyWithRespectToGeomEdge(*current_node, ge, outward_right_poly);
             addPolyEdgeToFrontOfPolygon(*outward_right_poly, pe.get());
 
             Node* geom_left_poly_node = pe->edge.start;
@@ -365,6 +372,15 @@ private:
             // Advance along the left span of the other node
             step = PolygonBuildStep{ other_node,
                     other_end_edges_it.circularAdvancedBy(1) };
+
+            // Update revolution
+            const GeomNode& other_geom_node =
+                geom_graph.getGeomNode(other_node->key);
+            const GeomEdge& other_ge = geom_graph.getGeomEdge((*step.edge_to_process)->key);
+            const Vector out_dir_current = GeomGraph::outwardDirFrom(ge, other_geom_node);
+            const Vector out_dir_other = GeomGraph::outwardDirFrom(other_ge, other_geom_node);
+            outward_right_poly->revolution += 
+                rotationBetweenNormalizedVectors(out_dir_current, out_dir_other);
         } while (step.node != start_step.node || step.edge_to_process != start_step.edge_to_process);
         steps.pop();
 

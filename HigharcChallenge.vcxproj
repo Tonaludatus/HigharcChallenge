@@ -152,6 +152,7 @@
   <ItemGroup>
     <ClCompile Include="Graph.cpp" />
     <ClCompile Include="HigharcChallenge.cpp" />
+    <ClCompile Include="Trig.cpp" />
     <ClCompile Include="Vector.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -159,6 +160,7 @@
     <ClInclude Include="Constants.h" />
     <ClInclude Include="Graph.h" />
     <ClInclude Include="Point.h" />
+    <ClInclude Include="Trig.h" />
     <ClInclude Include="Vector.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

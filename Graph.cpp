@@ -44,10 +44,13 @@ DualGraph importDualGraph(const PolyGraphExport& pgx) {
     for (auto& p : pgx.polygons) {
         auto n = pg.g.addNode();
         auto& node = n.second;
-        std::string name = p.first;
-        pg.polygons.emplace_back(
+        std::string name = p.name;
+        auto& poly = pg.polygons.emplace_back(
             std::make_unique<Polygon>(node, std::move(name)));
-        for (auto signed_edge_idx : p.second) {
+        poly->revolution = p.is_interior_poly 
+            ? innerRevolutionOfNGon(p.edges.size())
+            : outerRevolutionOfNGon(p.edges.size());
+        for (auto signed_edge_idx : p.edges) {
             size_t edge_idx = abs(signed_edge_idx) - 1;
             Edge& e = pg.g.getEdge(edge_idx);
             node.edges.emplace_back(&e);
@@ -86,7 +89,10 @@ PolyGraphExport exportPolyGraph(const PolyGraph& poly_graph) {
             }
         }
         pgx.polygons.emplace_back(
-            p->name, std::move(edges));
+            p->name, 
+            p->revolution < innerRevolutionOfNGon(p->node.edges.size())
+                + Rotation{0.0, -1.0, 0} /* accounting for numeric errors */,
+            std::move(edges));
     }
     return pgx;
 }
@@ -120,14 +126,15 @@ std::ostream& operator<<(std::ostream& os, const PolyGraphExport& pge) {
         if (i != 0) os << ",";
         os << std::endl << "    ";
         auto& p = pge.polygons[i];
-        os << "{\"name\"=\"" << p.first << "\", " << std::endl;
+        os << "{\"name\"=\"" << p.name << "\", " << std::endl;
+        os << "     \"interior\"=" << p.is_interior_poly << ", " <<std::endl;
         os << "     \"edges\"=[";
         size_t j = 0;
-        for (; j < p.second.size(); ++j) {
-            int signed_edge_idx = p.second[j];
+        for (; j < p.edges.size(); ++j) {
+            int signed_edge_idx = p.edges[j];
             if (j != 0) os << ", ";
             os << signed_edge_idx;
-            if (i % 4 == 3) os << std::endl << "      ";
+            if (j % 4 == 3) os << std::endl << "      ";
         }
         os << "]}";
     }

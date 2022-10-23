@@ -108,6 +108,14 @@ public:
 			delete to_del;
 		}
 	}
+	size_t size() const {
+		// Slow implementation in favor of less memory footprint
+		size_t ret = 0;
+		for (auto& it : *this) {
+			++ret;
+		}
+		return ret;
+	}
 	const iterator end() const {
 		return iterator(*this, head, 1);
 	}

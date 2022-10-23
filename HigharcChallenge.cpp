@@ -12,7 +12,7 @@ struct HighArcPolygonTest {
 	GeomNode& n7{ gg.addGeomNode(Point(27, -35.55)).second };
 };
 
-PolyGraphExport kite(HighArcPolygonTest& hapt) {
+PolyGraphExport kite(HighArcPolygonTest&& hapt) {
 	hapt.gg.addGeomEdge(hapt.n1, hapt.n2);
 	hapt.gg.addGeomEdge(hapt.n2, hapt.n3);
 	hapt.gg.addGeomEdge(hapt.n3, hapt.n4);
@@ -26,10 +26,42 @@ PolyGraphExport kite(HighArcPolygonTest& hapt) {
 	return exportPolyGraph(pg);
 }
 
+PolyGraphExport envelope(HighArcPolygonTest&& hapt) {
+	hapt.gg.addGeomEdge(hapt.n1, hapt.n2);
+	hapt.gg.addGeomEdge(hapt.n2, hapt.n3);
+	hapt.gg.addGeomEdge(hapt.n3, hapt.n4);
+	hapt.gg.addGeomEdge(hapt.n4, hapt.n1);
+	hapt.gg.addGeomEdge(hapt.n5, hapt.n1);
+	hapt.gg.addGeomEdge(hapt.n5, hapt.n2);
+	PolygonBuilder pb(hapt.gg);
+	PolyGraph pg{ std::move(pb.buildPolygons()) };
+	return exportPolyGraph(pg);
+}
+
+PolyGraphExport kite_with_ear(HighArcPolygonTest&& hapt) {
+	hapt.gg.addGeomEdge(hapt.n1, hapt.n2);
+	hapt.gg.addGeomEdge(hapt.n2, hapt.n3);
+	hapt.gg.addGeomEdge(hapt.n3, hapt.n4);
+	hapt.gg.addGeomEdge(hapt.n4, hapt.n1);
+	hapt.gg.addGeomEdge(hapt.n5, hapt.n1);
+	hapt.gg.addGeomEdge(hapt.n5, hapt.n2);
+	hapt.gg.addGeomEdge(hapt.n5, hapt.n3);
+	hapt.gg.addGeomEdge(hapt.n5, hapt.n4);
+	hapt.gg.addGeomEdge(hapt.n4, hapt.n6);
+	hapt.gg.addGeomEdge(hapt.n7, hapt.n4);
+	hapt.gg.addGeomEdge(hapt.n7, hapt.n6);
+	PolygonBuilder pb(hapt.gg);
+	PolyGraph pg{ std::move(pb.buildPolygons()) };
+	return exportPolyGraph(pg);
+}
+
 
 int main()
 {
-	HighArcPolygonTest hapt;
-	auto kite_export = kite(hapt);
-	std::cout << kite_export;
+	auto kite_export = kite(HighArcPolygonTest{});
+	std::cout << kite_export << std::endl;
+	auto envelope_export = envelope(HighArcPolygonTest{});
+	std::cout << envelope_export << std::endl;
+	auto kite_with_ear_export = kite_with_ear(HighArcPolygonTest{});
+	std::cout << kite_with_ear_export << std::endl;
 }

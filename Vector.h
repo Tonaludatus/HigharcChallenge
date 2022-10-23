@@ -6,7 +6,7 @@
 struct Vector {
     double x;
     double y;
-    Vector(double _x, double _y) : x(_x), y(_y) {}
+    constexpr Vector(double _x, double _y) : x(_x), y(_y) {}
     Vector(Point from, Point to) : x(to.x - from.x), y(to.y - from.y) {}
     double len() const {
         return sqrt(x * x + y * y);
